@@ -1,7 +1,6 @@
 
 ---
 
-```markdown
 # 🔗 Shorty - Modern URL Shortener
 
 A lightweight, fast, and persistent URL shortener built with **Node.js**, **Express**, and **MongoDB**. This project features a sleek, responsive UI built with **Tailwind CSS** and generates unique identifiers using **NanoID**.
