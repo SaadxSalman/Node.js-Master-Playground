@@ -2,10 +2,15 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const { nanoid } = require('nanoid');
+const path = require('path'); // Added path module
 const Url = require('./models/Url');
 
 const app = express();
+
+// Middlewares
 app.use(express.json());
+app.use(express.urlencoded({ extended: false })); // To handle form submissions
+app.use(express.static('public')); // To serve our HTML file
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
@@ -14,16 +19,17 @@ mongoose.connect(process.env.MONGO_URI)
 
 // Route 1: Create a Short URL
 app.post('/shorten', async (req, res) => {
+    // Note: express.urlencoded allows you to access data from req.body via forms
     const { fullUrl } = req.body;
 
     if (!fullUrl) return res.status(400).json({ error: 'URL is required' });
 
-    const shortUrl = nanoid(7); // Generates a unique 7-character string
-    const newUrl = await Url.create({ fullUrl, shortUrl });
+    const shortId = nanoid(7); // Generates a unique 7-character string
+    const newUrl = await Url.create({ fullUrl, shortUrl: shortId });
 
     res.json({ 
         message: 'URL shortened successfully',
-        shortUrl: `http://localhost:3000/${shortUrl}` 
+        shortUrl: `http://localhost:3000/${shortId}` 
     });
 });
 
