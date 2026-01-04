@@ -4,53 +4,76 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 
 const app = express();
+const PORT = 3000;
 
 // Middleware
 app.use(express.json());
-app.use(cors()); // Allows your HTML file to talk to this server
+app.use(cors()); // Critical for the HTML file to connect
+app.use(express.static(__dirname));
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/taskdb')
-    .then(() => console.log("MongoDB Connected"))
-    .catch(err => console.error("Connection Error:", err));
+    .then(() => console.log("✅ MongoDB Connected Successfully"))
+    .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
-// Models
+// Internal Imports
+const auth = require('./middleware/auth');
 const User = require('./models/User');
 const Task = require('./models/Task');
-const auth = require('./middleware/auth');
 
-// --- Routes ---
+// --- API Routes ---
 
-// Auth Routes
+// Auth
 app.use('/api/auth', require('./routes/auth'));
 
-// Task Routes
+// Fetch all tasks for the logged-in user
 app.get('/api/tasks', auth, async (req, res) => {
-    const tasks = await Task.find({ userId: req.user.userId });
-    res.json(tasks);
+    try {
+        const tasks = await Task.find({ userId: req.user.userId });
+        res.json(tasks);
+    } catch (err) {
+        res.status(500).json({ message: "Server Error" });
+    }
 });
 
+// Create a new task
 app.post('/api/tasks', auth, async (req, res) => {
-    const newTask = new Task({ ...req.body, userId: req.user.userId });
-    await newTask.save();
-    res.json(newTask);
+    try {
+        const newTask = new Task({ 
+            title: req.body.title, 
+            userId: req.user.userId 
+        });
+        await newTask.save();
+        res.status(201).json(newTask);
+    } catch (err) {
+        res.status(400).json({ message: "Error creating task" });
+    }
 });
 
-// Toggle Task Status
+// Toggle Task Status (Completed/Pending)
 app.patch('/api/tasks/:id', auth, async (req, res) => {
-    const task = await Task.findOneAndUpdate(
-        { _id: req.params.id, userId: req.user.userId },
-        { completed: req.body.completed },
-        { new: true }
-    );
-    res.json(task);
+    try {
+        const task = await Task.findOneAndUpdate(
+            { _id: req.params.id, userId: req.user.userId },
+            { completed: req.body.completed },
+            { new: true }
+        );
+        res.json(task);
+    } catch (err) {
+        res.status(400).json({ message: "Update failed" });
+    }
 });
 
 // Delete Task
 app.delete('/api/tasks/:id', auth, async (req, res) => {
-    await Task.findOneAndDelete({ _id: req.params.id, userId: req.user.userId });
-    res.json({ message: "Task deleted" });
+    try {
+        await Task.findOneAndDelete({ _id: req.params.id, userId: req.user.userId });
+        res.json({ message: "Task deleted" });
+    } catch (err) {
+        res.status(400).json({ message: "Delete failed" });
+    }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
