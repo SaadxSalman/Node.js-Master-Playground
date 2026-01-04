@@ -1,13 +1,17 @@
 {
   "name": "file-organizer",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A lightweight Node.js CLI to organize files by extension",
+  "main": "organizer.js",
+  "type": "module",
+  "bin": {
+    "organize": "./organizer.js"
+  },
   "scripts": {
+    "start": "node organizer.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs"
+  "keywords": ["cli", "organizer", "file-management"],
+  "author": "saadxsalman",
+  "license": "MIT"
 }
