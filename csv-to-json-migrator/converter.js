@@ -1,23 +1,29 @@
 const fs = require('fs');
+const fse = require('fs-extra'); // Helper for folder creation
 const csv = require('csv-parser');
 const { Transform } = require('stream');
 
-/**
- * Converts CSV to JSON using Streams to keep memory usage low.
- * @param {string} inputPath - Path to the source CSV
- * @param {string} outputPath - Path to the destination JSON
- */
-const migrateCsvToJson = (inputPath, outputPath) => {
+const migrateCsvToJson = (inputPath, outputPath, io) => {
+  // Ensure the output directory exists
+  fse.ensureDirSync('converted');
+
+  const stats = fs.statSync(inputPath);
+  const totalSize = stats.size;
+  let processedSize = 0;
+
   const readStream = fs.createReadStream(inputPath);
   const writeStream = fs.createWriteStream(outputPath);
 
-  // A Transform stream to format the JSON array correctly
   let isFirstChunk = true;
   const jsonTransformer = new Transform({
     writableObjectMode: true,
     transform(chunk, encoding, callback) {
+      // Track progress
+      processedSize += JSON.stringify(chunk).length; 
+      const progress = Math.min(99, Math.floor((processedSize / totalSize) * 100));
+      io.emit('migrationProgress', { progress });
+
       let data = JSON.stringify(chunk, null, 2);
-      
       if (isFirstChunk) {
         data = '[' + data;
         isFirstChunk = false;
@@ -32,18 +38,15 @@ const migrateCsvToJson = (inputPath, outputPath) => {
     }
   });
 
-  console.time('Migration Time');
-
   readStream
-    .pipe(csv())           // Step 1: Parse CSV chunks into JS Objects
-    .pipe(jsonTransformer) // Step 2: Wrap objects into a JSON array format
-    .pipe(writeStream)     // Step 3: Write chunks to disk
+    .pipe(csv())
+    .pipe(jsonTransformer)
+    .pipe(writeStream)
     .on('finish', () => {
-      console.timeEnd('Migration Time');
-      console.log('Migration complete. Memory usage stayed low!');
+      io.emit('migrationProgress', { progress: 100, status: 'Complete!' });
     })
     .on('error', (err) => {
-      console.error('Migration failed:', err);
+      io.emit('migrationError', { message: err.message });
     });
 };
 

@@ -1,13 +1,21 @@
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const multer = require('multer');
 const path = require('path');
+const fse = require('fs-extra');
 const migrateCsvToJson = require('./converter');
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
-const PORT = process.env.PORT || 3000;
+const server = http.createServer(app);
+const io = new Server(server);
 
+// Ensure folders exist on startup
+fse.ensureDirSync('uploads');
+fse.ensureDirSync('converted');
+
+const upload = multer({ dest: 'uploads/' });
 app.use(express.static('public'));
 
 app.post('/upload', upload.single('csvfile'), (req, res) => {
@@ -16,11 +24,11 @@ app.post('/upload', upload.single('csvfile'), (req, res) => {
   const inputPath = req.file.path;
   const outputPath = path.join(__dirname, 'converted', `${req.file.filename}.json`);
 
-  migrateCsvToJson(inputPath, outputPath);
+  // Start migration
+  migrateCsvToJson(inputPath, outputPath, io);
   
-  res.send(`File received! Processing started. Check the "/converted" folder.`);
+  res.status(200).json({ message: 'Processing started...' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server: http://localhost:${PORT}`));
