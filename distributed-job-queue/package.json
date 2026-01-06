@@ -9,5 +9,16 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "bullmq": "^5.66.4",
+    "dotenv": "^17.2.3",
+    "ejs": "^3.1.10",
+    "express": "^5.2.1",
+    "ioredis": "^5.9.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11",
+    "tailwindcss": "^4.1.18"
+  }
 }
