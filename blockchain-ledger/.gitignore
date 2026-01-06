@@ -1,5 +1,3 @@
-# Dependency folders
 node_modules/
-
-# Local environment variables (THIS KEEPS YOUR API KEY SAFE)
 .env
+.DS_Store
