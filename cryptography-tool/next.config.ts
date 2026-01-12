@@ -2,14 +2,24 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  // 1. Tell Turbopack how to handle .node files
+  experimental: {
+    turbo: {
+      rules: {
+        "*.node": {
+          loaders: ["node-loader"],
+          as: "resource",
+        },
+      },
+    },
+  },
+  // 2. Keep the Webpack config for production builds
   webpack: (config, { isServer }) => {
-    // This allows Webpack to recognize and link the .node binary
     config.module.rules.push({
       test: /\.node$/,
       use: "node-loader",
     });
 
-    // Fix for N-API modules in Next.js
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -18,7 +28,6 @@ const nextConfig: NextConfig = {
         os: false,
       };
     }
-
     return config;
   },
 };
