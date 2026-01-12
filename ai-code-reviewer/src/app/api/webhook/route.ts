@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Octokit } from "octokit";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import crypto from "crypto";
 
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function POST(req: NextRequest) {
   try {
-    // We need the raw text to accurately verify the HMAC signature
     const rawBody = await req.text();
     const signature = req.headers.get("x-hub-signature-256");
 
-    // 1. Security: Validate Webhook Secret using timingSafeEqual
+    // 1. Security: Signature Verification
     const hmac = crypto.createHmac("sha256", process.env.WEBHOOK_SECRET || "");
     const digest = Buffer.from("sha256=" + hmac.update(rawBody).digest("hex"), "utf8");
     const checksum = Buffer.from(signature || "", "utf8");
@@ -24,16 +23,21 @@ export async function POST(req: NextRequest) {
 
     const payload = JSON.parse(rawBody);
 
-    // 2. Filter for Pull Request "opened" or "synchronize" (new commits) events
+    // 2. Handle GitHub Ping
+    if (req.headers.get("x-github-event") === "ping") {
+      console.log("✅ GitHub Ping Received!");
+      return NextResponse.json({ message: "pong" });
+    }
+
+    // 3. PR Review Logic
     if (payload.pull_request && (payload.action === "opened" || payload.action === "synchronize")) {
       const owner = payload.repository.owner.login;
       const repo = payload.repository.name;
       const pull_number = payload.pull_request.number;
 
-      console.log(`Processing PR #${pull_number} for ${owner}/${repo}`);
+      console.log(`🚀 Processing PR #${pull_number} for ${owner}/${repo}`);
 
-      // 3. Fetch the PR Diff
-      // Using 'vnd.github.v3.diff' tells GitHub to return the git diff text instead of JSON
+      // Fetch the Diff
       const { data: diff } = await octokit.rest.pulls.get({
         owner,
         repo,
@@ -41,45 +45,37 @@ export async function POST(req: NextRequest) {
         headers: { accept: "application/vnd.github.v3.diff" },
       });
 
-      // 4. Gemini AI Review
-      // We cast 'diff' to string because the Octokit header returns string content
       const diffContent = diff as unknown as string;
-      
-      // Basic check: If diff is massive, truncate it or Gemini might throw an error
-      const truncatedDiff = diffContent.slice(0, 15000); 
+      const truncatedDiff = diffContent.slice(0, 15000);
 
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
-        systemInstruction: "You are a senior software engineer at a top tech company. Your code reviews are brief, helpful, and prioritize performance and security."
+      // 4. Gemini 3 Flash Implementation (Matching your Documentation)
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `You are a senior reviewer for @saadxsalman. Review this diff and give 3-5 technical improvements:\n\n${truncatedDiff}` }]
+          }
+        ],
       });
 
-      const prompt = `Review the following git diff for saasxsalman's project. 
-      List 3-5 high-impact suggestions. Focus on:
-      - Potential bugs
-      - Security vulnerabilities
-      - Readability
-      
-      Diff:
-      ${truncatedDiff}`;
+      const reviewText = response.text;
 
-      const result = await model.generateContent(prompt);
-      const reviewText = result.response.text();
-
-      // 5. Post Review Comment as an Issue Comment
+      // 5. Post to GitHub
       await octokit.rest.issues.createComment({
         owner,
         repo,
         issue_number: pull_number,
-        body: `## 🤖 AI Code Reviewer (Gemini 1.5 Flash)\n\n${reviewText}\n\n---\n*Verified Review for @saadxsalman*`
+        body: `## 🤖 AI Code Review (Gemini 3 Flash)\n\n${reviewText}\n\n---\n*Bot for @saadxsalman*`
       });
 
-      return NextResponse.json({ status: "Review posted successfully" });
+      console.log("✅ Review Comment Posted successfully!");
+      return NextResponse.json({ status: "success" });
     }
 
-    return NextResponse.json({ status: "Event ignored" });
-
+    return NextResponse.json({ status: "event ignored" });
   } catch (error: any) {
-    console.error("🧪 Webhook Error:", error.message);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("🧪 Webhook Error Detail:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
