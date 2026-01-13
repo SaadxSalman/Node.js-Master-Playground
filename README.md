@@ -1,6 +1,10 @@
 
 ---
 
+<p align="center">
+  <img src="Nodejs.png" alt="The Rust Loom Logo">
+</p>
+
 # 🚀 Node.js Master Playground
 
 Welcome to the **Node.js Master Playground**! This repository is a curated, project-driven learning environment designed to take you from the basics of JavaScript on the server to mastering complex, scalable backend architectures. Instead of just reading theory, you will learn by building, breaking, and fixing real-world applications.
